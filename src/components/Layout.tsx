@@ -1,10 +1,17 @@
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Outlet } from 'react-router-dom';
 import Navbar from './Navbar';
 import Footer from './Footer';
+import { useSiteStore } from '../lib/store';
 
 const Layout = () => {
+  const hydrateFromRemote = useSiteStore((s) => s.hydrateFromRemote);
+
+  useEffect(() => {
+    hydrateFromRemote();
+  }, [hydrateFromRemote]);
+
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
       <Navbar />

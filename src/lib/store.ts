@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { supabase } from './supabase';
 
 export interface Slide {
   id: string;
@@ -42,6 +42,7 @@ export interface GlobalSettings {
 interface SiteConfigState {
   globalSettings: GlobalSettings;
   sections: Section[];
+  hydrateFromRemote: () => Promise<void>;
   updateGlobalSettings: (settings: Partial<GlobalSettings>) => void;
   updateSection: (id: string, newContent: Partial<Section>) => void;
   reorderSections: (newOrder: Section[]) => void;
@@ -49,6 +50,15 @@ interface SiteConfigState {
   removeSection: (id: string) => void;
   resetToDefault: () => void;
 }
+
+type SiteSettingsRow = {
+  id: string;
+  settings: {
+    globalSettings?: GlobalSettings;
+    sections?: Section[];
+  };
+  updated_at: string;
+};
 
 const DEFAULT_GLOBAL_SETTINGS: GlobalSettings = {
   siteIdentity: {
@@ -146,57 +156,122 @@ const DEFAULT_SECTIONS: Section[] = [
   }
 ];
 
-export const useSiteStore = create<SiteConfigState>()(
-  persist(
-    (set) => ({
-      globalSettings: DEFAULT_GLOBAL_SETTINGS,
-      sections: DEFAULT_SECTIONS,
-      updateGlobalSettings: (settings) =>
-        set((state) => {
-            const currentSettings = state.globalSettings || DEFAULT_GLOBAL_SETTINGS;
-            const newSettings = { ...currentSettings };
-            
-            if (settings.siteIdentity) {
-                newSettings.siteIdentity = { 
-                    ...(currentSettings.siteIdentity || DEFAULT_GLOBAL_SETTINGS.siteIdentity), 
-                    ...settings.siteIdentity 
-                };
-            }
-            if (settings.announcement) {
-                newSettings.announcement = { 
-                    ...(currentSettings.announcement || DEFAULT_GLOBAL_SETTINGS.announcement), 
-                    ...settings.announcement 
-                };
-            }
-            if (settings.footer) {
-                newSettings.footer = { 
-                    ...(currentSettings.footer || DEFAULT_GLOBAL_SETTINGS.footer), 
-                    ...settings.footer 
-                };
-                if (settings.footer.social) {
-                    newSettings.footer.social = {
-                        ...(currentSettings.footer?.social || DEFAULT_GLOBAL_SETTINGS.footer.social),
-                        ...settings.footer.social
-                    };
-                }
-            }
-            
-            return { globalSettings: newSettings };
-        }),
-      updateSection: (id, newContent) =>
-        set((state) => ({
-          sections: state.sections.map((sec) =>
-            sec.id === id ? { ...sec, ...newContent } : sec
-          ),
-        })),
-      reorderSections: (newOrder) => set({ sections: newOrder }),
-      addSection: (section) => set((state) => ({ sections: [...state.sections, section] })),
-      removeSection: (id) =>
-        set((state) => ({ sections: state.sections.filter((s) => s.id !== id) })),
-      resetToDefault: () => set({ sections: DEFAULT_SECTIONS, globalSettings: DEFAULT_GLOBAL_SETTINGS }),
-    }),
-    {
-      name: 'site-config-storage',
+const ADMIN_EMAIL = 'humility135@gmail.com';
+
+let saveTimer: ReturnType<typeof setTimeout> | null = null;
+
+const scheduleSave = () => {
+  if (saveTimer) clearTimeout(saveTimer);
+  saveTimer = setTimeout(async () => {
+    const state = useSiteStore.getState();
+    try {
+      const { data } = await supabase.auth.getSession();
+      const email = data.session?.user?.email;
+      if (!email || email !== ADMIN_EMAIL) return;
+
+      const payload = {
+        globalSettings: state.globalSettings,
+        sections: state.sections,
+      };
+
+      const { error } = await supabase.from('site_settings').upsert(
+        {
+          id: 'global',
+          settings: payload,
+        },
+        { onConflict: 'id' }
+      );
+      if (error) throw error;
+    } catch {
     }
-  )
-);
+  }, 600);
+};
+
+export const useSiteStore = create<SiteConfigState>()((set) => ({
+  globalSettings: DEFAULT_GLOBAL_SETTINGS,
+  sections: DEFAULT_SECTIONS,
+
+  hydrateFromRemote: async () => {
+    try {
+      const { data, error } = await supabase
+        .from('site_settings')
+        .select('id, settings, updated_at')
+        .eq('id', 'global')
+        .maybeSingle<SiteSettingsRow>();
+
+      if (error) throw error;
+
+      const remoteGlobal = data?.settings?.globalSettings;
+      const remoteSections = data?.settings?.sections;
+
+      set({
+        globalSettings: remoteGlobal || DEFAULT_GLOBAL_SETTINGS,
+        sections: remoteSections && remoteSections.length > 0 ? remoteSections : DEFAULT_SECTIONS,
+      });
+    } catch {
+      set({ globalSettings: DEFAULT_GLOBAL_SETTINGS, sections: DEFAULT_SECTIONS });
+    }
+  },
+
+  updateGlobalSettings: (settings) => {
+    set((state) => {
+      const currentSettings = state.globalSettings || DEFAULT_GLOBAL_SETTINGS;
+      const newSettings = { ...currentSettings };
+
+      if (settings.siteIdentity) {
+        newSettings.siteIdentity = {
+          ...(currentSettings.siteIdentity || DEFAULT_GLOBAL_SETTINGS.siteIdentity),
+          ...settings.siteIdentity,
+        };
+      }
+      if (settings.announcement) {
+        newSettings.announcement = {
+          ...(currentSettings.announcement || DEFAULT_GLOBAL_SETTINGS.announcement),
+          ...settings.announcement,
+        };
+      }
+      if (settings.footer) {
+        newSettings.footer = {
+          ...(currentSettings.footer || DEFAULT_GLOBAL_SETTINGS.footer),
+          ...settings.footer,
+        };
+        if (settings.footer.social) {
+          newSettings.footer.social = {
+            ...(currentSettings.footer?.social || DEFAULT_GLOBAL_SETTINGS.footer.social),
+            ...settings.footer.social,
+          };
+        }
+      }
+
+      return { globalSettings: newSettings };
+    });
+    scheduleSave();
+  },
+
+  updateSection: (id, newContent) => {
+    set((state) => ({
+      sections: state.sections.map((sec) => (sec.id === id ? { ...sec, ...newContent } : sec)),
+    }));
+    scheduleSave();
+  },
+
+  reorderSections: (newOrder) => {
+    set({ sections: newOrder });
+    scheduleSave();
+  },
+
+  addSection: (section) => {
+    set((state) => ({ sections: [...state.sections, section] }));
+    scheduleSave();
+  },
+
+  removeSection: (id) => {
+    set((state) => ({ sections: state.sections.filter((s) => s.id !== id) }));
+    scheduleSave();
+  },
+
+  resetToDefault: () => {
+    set({ sections: DEFAULT_SECTIONS, globalSettings: DEFAULT_GLOBAL_SETTINGS });
+    scheduleSave();
+  },
+}));
