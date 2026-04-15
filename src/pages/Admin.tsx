@@ -1216,7 +1216,7 @@ const ProductManager = ({ showToast }: { showToast: (msg: string, type: ToastTyp
       const to = from + pageSize - 1;
 
       const selectCols =
-        'id,name,price,sale_price,images,stock_quantity,category,series,created_at,updated_at,is_deleted,product_variants(size,color,stock_quantity)';
+        'id,name,description,sizes,price,sale_price,images,stock_quantity,category,series,created_at,updated_at,is_deleted,product_variants(size,color,stock_quantity)';
 
       let query = supabase
         .from('products')
@@ -1592,6 +1592,50 @@ const ProductManager = ({ showToast }: { showToast: (msg: string, type: ToastTyp
       else next.add(id);
       return next;
     });
+  };
+
+  const toggleSelectAllCurrentPage = () => {
+    setSelectedProductIds((prev) => {
+      if (products.length === 0) return prev;
+      if (prev.size === products.length) return new Set();
+      return new Set(products.map((p) => p.id));
+    });
+  };
+
+  const bulkPermanentDelete = async () => {
+    const count = selectedProductIds.size;
+    if (count === 0) return;
+
+    const ok1 = window.confirm(`確定要永久刪除 ${count} 件嗎？此操作無法復原。`);
+    if (!ok1) return;
+
+    const input = window.prompt('請輸入 DELETE 確認刪除');
+    if (input !== 'DELETE') {
+      showToast('已取消批量刪除', 'error');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const ids = Array.from(selectedProductIds);
+      const { error } = await supabase.from('products').delete().in('id', ids);
+      if (error) throw error;
+
+      setSelectedProductIds(new Set());
+
+      if (page > 1 && products.length === count) {
+        setPage((p) => Math.max(1, p - 1));
+      } else {
+        await fetchProducts();
+      }
+
+      showToast('已批量永久刪除', 'success');
+    } catch (error: any) {
+      console.error('Error bulk deleting products:', error);
+      showToast('批量刪除失敗: ' + (error?.message || 'Unknown error'), 'error');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const clearFilters = () => {
@@ -2021,12 +2065,31 @@ const ProductManager = ({ showToast }: { showToast: (msg: string, type: ToastTyp
           </div>
         </div>
 
+        {selectedProductIds.size > 0 && (
+          <div className="px-6 py-4 border-b border-gray-100 bg-red-50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="text-sm font-medium text-gray-800">已選 {selectedProductIds.size} 件</div>
+            <button
+              onClick={bulkPermanentDelete}
+              className="text-sm px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50"
+              disabled={loading}
+            >
+              批量永久刪除
+            </button>
+          </div>
+        )}
+
         <div className="overflow-x-auto">
           <table className="min-w-full text-sm">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr className="text-left text-gray-600">
                 <th className="w-12 px-4 py-3">
-                  <input type="checkbox" className="h-4 w-4 rounded border-gray-300" disabled />
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 rounded border-gray-300"
+                    checked={products.length > 0 && selectedProductIds.size === products.length}
+                    onChange={toggleSelectAllCurrentPage}
+                    disabled={loading || products.length === 0}
+                  />
                 </th>
                 <th className="px-4 py-3">商品</th>
                 <th className="px-4 py-3">狀態</th>
