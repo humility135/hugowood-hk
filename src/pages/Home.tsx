@@ -172,13 +172,14 @@ const Home = () => {
           </div>
           
           {/* Slide Indicators */}
-          <div className="absolute bottom-8 left-8 md:left-16 flex space-x-2">
+          <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-black/30 backdrop-blur-sm rounded-full px-3 py-2">
             {slides.map((_: any, index: number) => (
                 <button
                     key={index}
                     onClick={() => setCurrentSlide(index)}
-                    className={`h-1 rounded-full transition-all duration-300 ${index === currentSlide ? 'w-8 bg-orange-500' : 'w-4 bg-gray-600 hover:bg-gray-400'}`}
+                    className={`h-2 rounded-full transition-all duration-300 ${index === currentSlide ? 'w-6 bg-white' : 'w-2 bg-white/40 hover:bg-white/70'}`}
                     aria-label={`Go to slide ${index + 1}`}
+                    aria-current={index === currentSlide ? 'true' : undefined}
                 />
             ))}
           </div>
