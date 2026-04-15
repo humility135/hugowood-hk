@@ -1149,12 +1149,21 @@ const ProductManager = ({ showToast }: { showToast: (msg: string, type: ToastTyp
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState('all');
   const [saleOnly, setSaleOnly] = useState(false);
   const [selectedProductIds, setSelectedProductIds] = useState<Set<string>>(new Set());
+  const pageSize = 20;
+  const [page, setPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const [sortKey, setSortKey] = useState<'updated_at_desc' | 'created_at_desc' | 'price_asc' | 'stock_asc'>('updated_at_desc');
 
   useEffect(() => {
-    fetchProducts();
     fetchSeries();
     fetchCategories();
   }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    fetchProducts(controller.signal);
+    return () => controller.abort();
+  }, [page, searchTerm, selectedSeriesFilter, selectedCategoryFilter, saleOnly, sortKey]);
 
   const fetchCategories = async () => {
     try {
@@ -1200,15 +1209,51 @@ const ProductManager = ({ showToast }: { showToast: (msg: string, type: ToastTyp
     }
   };
 
-  const fetchProducts = async () => {
+  const fetchProducts = async (signal?: AbortSignal) => {
     try {
-      const { data, error } = await supabase
+      setLoading(true);
+      const from = (page - 1) * pageSize;
+      const to = from + pageSize - 1;
+
+      const selectCols =
+        'id,name,price,sale_price,images,stock_quantity,category,series,created_at,updated_at,is_deleted,product_variants(size,color,stock_quantity)';
+
+      let query = supabase
         .from('products')
-        .select('*, product_variants(size, color, stock_quantity)')
-        .order('created_at', { ascending: false });
-      
+        .select(selectCols, { count: 'exact' });
+
+      const term = searchTerm.trim();
+      if (term.length > 0) {
+        query = query.or(`name.ilike.%${term}%,series.ilike.%${term}%,category.ilike.%${term}%`);
+      }
+
+      if (selectedSeriesFilter !== 'all') {
+        query = query.eq('series', selectedSeriesFilter);
+      }
+
+      if (selectedCategoryFilter !== 'all') {
+        query = query.eq('category', selectedCategoryFilter);
+      }
+
+      if (saleOnly) {
+        query = query.not('sale_price', 'is', null);
+      }
+
+      if (sortKey === 'updated_at_desc') query = query.order('updated_at', { ascending: false });
+      if (sortKey === 'created_at_desc') query = query.order('created_at', { ascending: false });
+      if (sortKey === 'price_asc') query = query.order('price', { ascending: true });
+      if (sortKey === 'stock_asc') query = query.order('stock_quantity', { ascending: true });
+
+      query = query.range(from, to);
+
+      if (signal) query = query.abortSignal(signal);
+
+      const { data, error, count } = await query;
+
       if (error) throw error;
       setProducts(data || []);
+      setTotalCount(count || 0);
+      setSelectedProductIds(new Set());
     } catch (error) {
       console.error('Error fetching products:', error);
     } finally {
@@ -1532,21 +1577,6 @@ const ProductManager = ({ showToast }: { showToast: (msg: string, type: ToastTyp
     return img.url;
   };
 
-  const normalizedSearch = searchTerm.trim().toLowerCase();
-  const filteredProducts = products.filter((p) => {
-    const matchesSearch =
-      normalizedSearch.length === 0 ||
-      p.name.toLowerCase().includes(normalizedSearch) ||
-      (p.series || '').toLowerCase().includes(normalizedSearch) ||
-      (p.category || '').toLowerCase().includes(normalizedSearch);
-
-    const matchesSeries = selectedSeriesFilter === 'all' || (p.series || '') === selectedSeriesFilter;
-    const matchesCategory = selectedCategoryFilter === 'all' || (p.category || '') === selectedCategoryFilter;
-    const matchesSaleOnly = !saleOnly || p.sale_price != null;
-
-    return matchesSearch && matchesSeries && matchesCategory && matchesSaleOnly;
-  });
-
   const toggleSelection = (id: string) => {
     setSelectedProductIds((prev) => {
       const next = new Set(prev);
@@ -1561,6 +1591,8 @@ const ProductManager = ({ showToast }: { showToast: (msg: string, type: ToastTyp
     setSelectedSeriesFilter('all');
     setSelectedCategoryFilter('all');
     setSaleOnly(false);
+    setSortKey('updated_at_desc');
+    setPage(1);
   };
 
   const availableColors = Array.from(new Set(formData.images.map(img => img.color).filter(Boolean)));
@@ -1888,7 +1920,7 @@ const ProductManager = ({ showToast }: { showToast: (msg: string, type: ToastTyp
       <div className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden mb-8">
         <div className="px-6 py-4 border-b border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center justify-between w-full gap-4">
-            <h2 className="text-xl font-bold">產品 ({filteredProducts.length})</h2>
+            <h2 className="text-xl font-bold">產品 ({totalCount})</h2>
             <div className="flex items-center gap-2">
               <button
                 onClick={() => fetchProducts()}
@@ -1911,13 +1943,19 @@ const ProductManager = ({ showToast }: { showToast: (msg: string, type: ToastTyp
                   placeholder="搜尋產品名稱/分類/系列"
                   className="pl-10 pr-4 py-2 border border-gray-300 rounded-md text-sm w-full focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent"
                   value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
+                  onChange={(e) => {
+                    setSearchTerm(e.target.value);
+                    setPage(1);
+                  }}
                 />
                 <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
              </div>
 
              <button
-                onClick={() => setSaleOnly((v) => !v)}
+                onClick={() => {
+                  setSaleOnly((v) => !v);
+                  setPage(1);
+                }}
                 className={`flex items-center px-4 py-2 rounded-md text-sm font-medium border transition-colors ${
                   saleOnly ? 'bg-red-50 text-red-700 border-red-200' : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'
                 }`}
@@ -1928,7 +1966,10 @@ const ProductManager = ({ showToast }: { showToast: (msg: string, type: ToastTyp
 
              <select
                 value={selectedSeriesFilter}
-                onChange={(e) => setSelectedSeriesFilter(e.target.value)}
+                onChange={(e) => {
+                  setSelectedSeriesFilter(e.target.value);
+                  setPage(1);
+                }}
                 className="border border-gray-300 rounded-md text-sm px-4 py-2 focus:outline-none focus:ring-2 focus:ring-black"
              >
                 <option value="all">所有系列</option>
@@ -1944,13 +1985,30 @@ const ProductManager = ({ showToast }: { showToast: (msg: string, type: ToastTyp
 
              <select
                 value={selectedCategoryFilter}
-                onChange={(e) => setSelectedCategoryFilter(e.target.value)}
+                onChange={(e) => {
+                  setSelectedCategoryFilter(e.target.value);
+                  setPage(1);
+                }}
                 className="border border-gray-300 rounded-md text-sm px-4 py-2 focus:outline-none focus:ring-2 focus:ring-black"
              >
                 <option value="all">所有分類</option>
                 {categoryList.map(cat => (
                     <option key={cat} value={cat}>{cat}</option>
                 ))}
+             </select>
+
+             <select
+               value={sortKey}
+               onChange={(e) => {
+                 setSortKey(e.target.value as any);
+                 setPage(1);
+               }}
+               className="border border-gray-300 rounded-md text-sm px-4 py-2 focus:outline-none focus:ring-2 focus:ring-black"
+             >
+               <option value="updated_at_desc">最新更新</option>
+               <option value="created_at_desc">最新新增</option>
+               <option value="price_asc">價錢（低→高）</option>
+               <option value="stock_asc">庫存（低→高）</option>
              </select>
           </div>
         </div>
@@ -2005,7 +2063,7 @@ const ProductManager = ({ showToast }: { showToast: (msg: string, type: ToastTyp
                 ))
               )}
 
-              {!loading && filteredProducts.map((product) => {
+              {!loading && products.map((product) => {
                 const imgUrl = product.images && product.images.length > 0 ? getDisplayUrl(product.images[0]) : null;
                 const selected = selectedProductIds.has(product.id);
                 const stockTotal =
@@ -2096,7 +2154,7 @@ const ProductManager = ({ showToast }: { showToast: (msg: string, type: ToastTyp
                 );
               })}
 
-              {!loading && filteredProducts.length === 0 && (
+              {!loading && products.length === 0 && (
                 <tr>
                   <td colSpan={9} className="px-6 py-16 text-center text-gray-500">
                     沒有符合條件的商品
@@ -2105,6 +2163,35 @@ const ProductManager = ({ showToast }: { showToast: (msg: string, type: ToastTyp
               )}
             </tbody>
           </table>
+        </div>
+
+        <div className="px-6 py-4 border-t border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="text-sm text-gray-600">
+            {totalCount === 0 ? '共 0 件' : (() => {
+              const from = (page - 1) * pageSize + 1;
+              const to = Math.min(page * pageSize, totalCount);
+              return `顯示 ${from}-${to} / 共 ${totalCount} 件`;
+            })()}
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              className="text-sm px-3 py-2 border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={loading || page <= 1}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+            >
+              上一頁
+            </button>
+            <div className="text-sm text-gray-700">
+              第 {page} 頁
+            </div>
+            <button
+              className="text-sm px-3 py-2 border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={loading || page * pageSize >= totalCount}
+              onClick={() => setPage((p) => p + 1)}
+            >
+              下一頁
+            </button>
+          </div>
         </div>
       </div>
     </div>
