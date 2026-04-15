@@ -1147,9 +1147,8 @@ const ProductManager = ({ showToast }: { showToast: (msg: string, type: ToastTyp
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSeriesFilter, setSelectedSeriesFilter] = useState('all');
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState('all');
-  const [showLowStockOnly, setShowLowStockOnly] = useState(false);
-  const [selectedProductIds, setSelectedProductIds] = useState<Set<string>>(new Set()); // New: Store selected IDs
-  const [bulkDiscount, setBulkDiscount] = useState<string>(''); // New: Discount percentage input
+  const [saleOnly, setSaleOnly] = useState(false);
+  const [selectedProductIds, setSelectedProductIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     fetchProducts();
@@ -1533,23 +1532,36 @@ const ProductManager = ({ showToast }: { showToast: (msg: string, type: ToastTyp
     return img.url;
   };
 
-  const activeProducts = products
-    .filter(p => !p.is_deleted)
-    .filter(p => {
-      const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                            p.series?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                            p.category?.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesSeries = selectedSeriesFilter === 'all' || p.series === selectedSeriesFilter;
-      const matchesCategory = selectedCategoryFilter === 'all' || p.category === selectedCategoryFilter;
-      const matchesLowStock = !showLowStockOnly || (
-        (p.product_variants && p.product_variants.length > 0)
-          ? p.product_variants.some(v => v.stock_quantity < 5)
-          : p.stock_quantity < 10
-      );
-      
-      return matchesSearch && matchesSeries && matchesCategory && matchesLowStock;
+  const normalizedSearch = searchTerm.trim().toLowerCase();
+  const filteredProducts = products.filter((p) => {
+    const matchesSearch =
+      normalizedSearch.length === 0 ||
+      p.name.toLowerCase().includes(normalizedSearch) ||
+      (p.series || '').toLowerCase().includes(normalizedSearch) ||
+      (p.category || '').toLowerCase().includes(normalizedSearch);
+
+    const matchesSeries = selectedSeriesFilter === 'all' || (p.series || '') === selectedSeriesFilter;
+    const matchesCategory = selectedCategoryFilter === 'all' || (p.category || '') === selectedCategoryFilter;
+    const matchesSaleOnly = !saleOnly || p.sale_price != null;
+
+    return matchesSearch && matchesSeries && matchesCategory && matchesSaleOnly;
+  });
+
+  const toggleSelection = (id: string) => {
+    setSelectedProductIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
     });
-  const deletedProducts = products.filter(p => p.is_deleted);
+  };
+
+  const clearFilters = () => {
+    setSearchTerm('');
+    setSelectedSeriesFilter('all');
+    setSelectedCategoryFilter('all');
+    setSaleOnly(false);
+  };
 
   const availableColors = Array.from(new Set(formData.images.map(img => img.color).filter(Boolean)));
 
@@ -1875,13 +1887,29 @@ const ProductManager = ({ showToast }: { showToast: (msg: string, type: ToastTyp
       {/* Product List */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden mb-8">
         <div className="px-6 py-4 border-b border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <h2 className="text-xl font-bold">現有產品列表 ({activeProducts.length})</h2>
-          <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
+          <div className="flex items-center justify-between w-full gap-4">
+            <h2 className="text-xl font-bold">產品 ({filteredProducts.length})</h2>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => fetchProducts()}
+                className="text-sm px-3 py-2 border border-gray-300 rounded-md hover:bg-gray-50"
+              >
+                重新載入
+              </button>
+              <button
+                onClick={clearFilters}
+                className="text-sm px-3 py-2 border border-gray-300 rounded-md hover:bg-gray-50"
+              >
+                清除篩選
+              </button>
+            </div>
+          </div>
+          <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
              <div className="relative flex-1 sm:flex-none">
                 <input
                   type="text"
-                  placeholder="搜尋產品..."
-                  className="pl-10 pr-4 py-2 border border-gray-300 rounded-full text-sm w-full focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="搜尋產品名稱/分類/系列"
+                  className="pl-10 pr-4 py-2 border border-gray-300 rounded-md text-sm w-full focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
@@ -1889,21 +1917,19 @@ const ProductManager = ({ showToast }: { showToast: (msg: string, type: ToastTyp
              </div>
 
              <button
-                onClick={() => setShowLowStockOnly(!showLowStockOnly)}
-                className={`flex items-center px-4 py-2 rounded-full text-sm font-medium border transition-colors ${
-                    showLowStockOnly 
-                        ? 'bg-red-50 text-red-700 border-red-200' 
-                        : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'
+                onClick={() => setSaleOnly((v) => !v)}
+                className={`flex items-center px-4 py-2 rounded-md text-sm font-medium border transition-colors ${
+                  saleOnly ? 'bg-red-50 text-red-700 border-red-200' : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'
                 }`}
              >
-                <AlertTriangle className="w-4 h-4 mr-2" />
-                {showLowStockOnly ? '只顯示低庫存' : '顯示低庫存'}
+                <Tag className="w-4 h-4 mr-2" />
+                只顯示特價
              </button>
 
              <select
                 value={selectedSeriesFilter}
                 onChange={(e) => setSelectedSeriesFilter(e.target.value)}
-                className="border border-gray-300 rounded-full text-sm px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="border border-gray-300 rounded-md text-sm px-4 py-2 focus:outline-none focus:ring-2 focus:ring-black"
              >
                 <option value="all">所有系列</option>
                 {existingSeries.map(series => (
@@ -1919,7 +1945,7 @@ const ProductManager = ({ showToast }: { showToast: (msg: string, type: ToastTyp
              <select
                 value={selectedCategoryFilter}
                 onChange={(e) => setSelectedCategoryFilter(e.target.value)}
-                className="border border-gray-300 rounded-full text-sm px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="border border-gray-300 rounded-md text-sm px-4 py-2 focus:outline-none focus:ring-2 focus:ring-black"
              >
                 <option value="all">所有分類</option>
                 {categoryList.map(cat => (
@@ -1928,132 +1954,159 @@ const ProductManager = ({ showToast }: { showToast: (msg: string, type: ToastTyp
              </select>
           </div>
         </div>
-        
-        <div className="divide-y divide-gray-200">
-          {activeProducts.map((product) => (
-            <div 
-                key={product.id} 
-                className="p-4 flex flex-col sm:flex-row sm:items-center justify-between hover:bg-gray-50 gap-4 transition-colors"
-            >
-              <div className="flex items-center space-x-4 flex-1">
-                <div className="h-12 w-12 bg-gray-100 rounded-md overflow-hidden border border-gray-200 flex-shrink-0">
-                  {product.images && product.images.length > 0 && (
-                    <img 
-                      src={getDisplayUrl(product.images[0])} 
-                      alt={product.name} 
-                      className="h-full w-full object-cover"
-                    />
-                  )}
-                </div>
-                <div className="min-w-0">
-                  <h3 className="font-medium text-gray-900 truncate">{product.name}</h3>
-                  <div className="flex items-center text-xs text-gray-500 gap-2 mt-0.5">
-                    <span className="bg-gray-100 px-2 py-0.5 rounded-full">
-                        {product.series === 'Football Collection' ? '港足' : (product.series === 'Other' ? '其他' : product.series)}
-                    </span>
-                    <span>{product.category}</span>
-                  </div>
-                </div>
-              </div>
 
-              <div className="flex items-center gap-6 sm:gap-8 justify-between sm:justify-end flex-1">
-                  <div className="text-right">
-                    <p className={`text-sm font-medium ${product.sale_price ? 'text-gray-400 line-through' : 'text-gray-900'}`}>HK$ {product.price}</p>
-                    {product.sale_price && (
-                        <p className="text-sm font-bold text-red-600">HK$ {product.sale_price}</p>
-                    )}
-                  </div>
+        <div className="overflow-x-auto">
+          <table className="min-w-full text-sm">
+            <thead className="bg-gray-50 border-b border-gray-200">
+              <tr className="text-left text-gray-600">
+                <th className="w-12 px-4 py-3">
+                  <input type="checkbox" className="h-4 w-4 rounded border-gray-300" disabled />
+                </th>
+                <th className="px-4 py-3">商品</th>
+                <th className="px-4 py-3">狀態</th>
+                <th className="px-4 py-3">庫存</th>
+                <th className="px-4 py-3">類別</th>
+                <th className="px-4 py-3">系列</th>
+                <th className="px-4 py-3">價錢</th>
+                <th className="px-4 py-3">更新</th>
+                <th className="w-24 px-4 py-3"></th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {loading && (
+                Array.from({ length: 6 }).map((_, i) => (
+                  <tr key={i} className="animate-pulse">
+                    <td className="px-4 py-4">
+                      <div className="h-4 w-4 bg-gray-200 rounded" />
+                    </td>
+                    <td className="px-4 py-4">
+                      <div className="h-4 w-48 bg-gray-200 rounded" />
+                    </td>
+                    <td className="px-4 py-4">
+                      <div className="h-5 w-16 bg-gray-200 rounded-full" />
+                    </td>
+                    <td className="px-4 py-4">
+                      <div className="h-4 w-16 bg-gray-200 rounded" />
+                    </td>
+                    <td className="px-4 py-4">
+                      <div className="h-4 w-20 bg-gray-200 rounded" />
+                    </td>
+                    <td className="px-4 py-4">
+                      <div className="h-4 w-24 bg-gray-200 rounded" />
+                    </td>
+                    <td className="px-4 py-4">
+                      <div className="h-4 w-24 bg-gray-200 rounded" />
+                    </td>
+                    <td className="px-4 py-4">
+                      <div className="h-4 w-24 bg-gray-200 rounded" />
+                    </td>
+                    <td className="px-4 py-4"></td>
+                  </tr>
+                ))
+              )}
 
-                  <div className="text-right min-w-[80px]">
-                     {/* Simplified Stock Display */}
-                     <p className={`text-sm font-medium ${
-                        (product.product_variants?.reduce((sum, v) => sum + v.stock_quantity, 0) || product.stock_quantity) < 10 
-                        ? 'text-red-600' 
-                        : 'text-gray-900'
-                     }`}>
-                        庫存: {product.product_variants?.reduce((sum, v) => sum + v.stock_quantity, 0) || product.stock_quantity}
-                     </p>
-                     <div className="text-xs text-gray-400 mt-0.5">
-                        {product.product_variants?.length || 0} 個規格
-                     </div>
-                  </div>
+              {!loading && filteredProducts.map((product) => {
+                const imgUrl = product.images && product.images.length > 0 ? getDisplayUrl(product.images[0]) : null;
+                const selected = selectedProductIds.has(product.id);
+                const stockTotal =
+                  product.product_variants?.reduce((sum, v) => sum + v.stock_quantity, 0) || product.stock_quantity;
 
-                  <div className="flex space-x-1">
-                    <button
-                        onClick={() => handleEdit(product)}
-                        className="text-gray-500 hover:text-blue-600 p-2 hover:bg-blue-50 rounded-md transition-colors"
-                        title="編輯"
-                    >
-                        <Edit className="w-4 h-4" />
-                    </button>
-                    <button
-                        onClick={(e) => handleSoftDelete(e, product.id, product.name)}
-                        className="text-gray-500 hover:text-red-600 p-2 hover:bg-red-50 rounded-md transition-colors"
-                        title="移至回收筒"
-                    >
-                        <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-              </div>
-            </div>
-          ))}
-          {activeProducts.length === 0 && (
-            <div className="p-8 text-center text-gray-500">
-              暫無產品，請在上方添加。
-            </div>
-          )}
+                return (
+                  <tr
+                    key={product.id}
+                    className="hover:bg-gray-50 cursor-pointer"
+                    onClick={() => handleEdit(product)}
+                  >
+                    <td className="px-4 py-4" onClick={(e) => e.stopPropagation()}>
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4 rounded border-gray-300"
+                        checked={selected}
+                        onChange={() => toggleSelection(product.id)}
+                      />
+                    </td>
+                    <td className="px-4 py-4">
+                      <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 bg-gray-100 rounded-md overflow-hidden border border-gray-200 shrink-0">
+                          {imgUrl && <img src={imgUrl} alt={product.name} className="h-full w-full object-cover" />}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="font-medium text-gray-900 truncate">{product.name}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-4 py-4">
+                      <span
+                        className={`text-xs px-2 py-1 rounded-full ${
+                          product.is_deleted ? 'bg-gray-100 text-gray-700' : 'bg-green-100 text-green-800'
+                        }`}
+                      >
+                        {product.is_deleted ? '停用' : '啟用'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-4">
+                      <span className={`${stockTotal < 10 ? 'text-red-600 font-semibold' : 'text-gray-900'}`}>
+                        {stockTotal}
+                      </span>
+                    </td>
+                    <td className="px-4 py-4 text-gray-700">{product.category}</td>
+                    <td className="px-4 py-4 text-gray-700">
+                      {product.series === 'Football Collection' ? '港足系列' : (product.series === 'Other' ? '其他' : product.series)}
+                    </td>
+                    <td className="px-4 py-4">
+                      <div className="flex flex-col">
+                        <span className={`${product.sale_price ? 'text-gray-400 line-through' : 'text-gray-900 font-medium'}`}>
+                          HK$ {product.price}
+                        </span>
+                        {product.sale_price && <span className="text-red-600 font-bold">HK$ {product.sale_price}</span>}
+                      </div>
+                    </td>
+                    <td className="px-4 py-4 text-gray-600">
+                      {product.updated_at ? new Date(product.updated_at).toLocaleDateString('zh-HK') : '-'}
+                    </td>
+                    <td className="px-4 py-4" onClick={(e) => e.stopPropagation()}>
+                      <div className="flex items-center justify-end gap-1">
+                        <button
+                          onClick={() => handleEdit(product)}
+                          className="text-gray-500 hover:text-blue-600 p-2 hover:bg-blue-50 rounded-md transition-colors"
+                          title="編輯"
+                        >
+                          <Edit className="w-4 h-4" />
+                        </button>
+                        {!product.is_deleted ? (
+                          <button
+                            onClick={(e) => handleSoftDelete(e, product.id, product.name)}
+                            className="text-gray-500 hover:text-red-600 p-2 hover:bg-red-50 rounded-md transition-colors"
+                            title="停用"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => handleRestore(product.id)}
+                            className="text-gray-500 hover:text-green-700 p-2 hover:bg-green-50 rounded-md transition-colors"
+                            title="啟用"
+                          >
+                            <RefreshCw className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+
+              {!loading && filteredProducts.length === 0 && (
+                <tr>
+                  <td colSpan={9} className="px-6 py-16 text-center text-gray-500">
+                    沒有符合條件的商品
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
-
-      {/* Recycle Bin */}
-      {deletedProducts.length > 0 && (
-        <div className="bg-gray-50 rounded-lg shadow-sm border border-gray-200 overflow-hidden opacity-90">
-            <div className="px-6 py-4 border-b border-gray-200 bg-gray-100 flex items-center">
-                <Archive className="w-5 h-5 mr-2 text-gray-500" />
-                <h2 className="text-xl font-bold text-gray-700">已刪除產品 (回收筒) - {deletedProducts.length}</h2>
-            </div>
-            <div className="divide-y divide-gray-200">
-            {deletedProducts.map((product) => (
-                <div key={product.id} className="p-6 flex items-center justify-between hover:bg-gray-100">
-                <div className="flex items-center space-x-4 opacity-70">
-                    <div className="h-16 w-16 bg-gray-200 rounded-md overflow-hidden border border-gray-300">
-                    {product.images && product.images.length > 0 && (
-                        <img 
-                        src={getDisplayUrl(product.images[0])} 
-                        alt={product.name} 
-                        className="h-full w-full object-cover grayscale"
-                        />
-                    )}
-                    </div>
-                    <div>
-                    <h3 className="font-medium text-gray-700">{product.name}</h3>
-                    <p className="text-sm text-gray-500">HK$ {product.price}</p>
-                    <p className="text-xs text-orange-500 mt-1">
-                        {product.series === 'Football Collection' ? '港足系列' : (product.series === 'Other' ? '其他' : product.series)}
-                    </p>
-                    </div>
-                </div>
-                <div className="flex space-x-2">
-                    <button
-                        onClick={() => handleRestore(product.id)}
-                        className="text-green-600 hover:text-green-800 p-2 hover:bg-green-50 rounded-full transition-colors"
-                        title="還原產品"
-                    >
-                        <RefreshCw className="w-5 h-5" />
-                    </button>
-                    <button
-                        onClick={(e) => handlePermanentDelete(e, product.id, product.name)}
-                        className="text-red-600 hover:text-red-800 p-2 hover:bg-red-50 rounded-full transition-colors"
-                        title="永久刪除"
-                    >
-                        <Trash2 className="w-5 h-5" />
-                    </button>
-                </div>
-                </div>
-            ))}
-            </div>
-        </div>
-      )}
     </div>
   );
 };
