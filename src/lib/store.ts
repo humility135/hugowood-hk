@@ -42,6 +42,7 @@ export interface GlobalSettings {
 interface SiteConfigState {
   globalSettings: GlobalSettings;
   sections: Section[];
+  lastSyncedAt: string | null;
   hydrateFromRemote: () => Promise<void>;
   updateGlobalSettings: (settings: Partial<GlobalSettings>) => void;
   updateSection: (id: string, newContent: Partial<Section>) => void;
@@ -182,6 +183,7 @@ const scheduleSave = () => {
         { onConflict: 'id' }
       );
       if (error) throw error;
+      useSiteStore.setState({ lastSyncedAt: new Date().toISOString() });
     } catch {
     }
   }, 600);
@@ -190,6 +192,7 @@ const scheduleSave = () => {
 export const useSiteStore = create<SiteConfigState>()((set) => ({
   globalSettings: DEFAULT_GLOBAL_SETTINGS,
   sections: DEFAULT_SECTIONS,
+  lastSyncedAt: null,
 
   hydrateFromRemote: async () => {
     try {
@@ -207,9 +210,10 @@ export const useSiteStore = create<SiteConfigState>()((set) => ({
       set({
         globalSettings: remoteGlobal || DEFAULT_GLOBAL_SETTINGS,
         sections: remoteSections && remoteSections.length > 0 ? remoteSections : DEFAULT_SECTIONS,
+        lastSyncedAt: data?.updated_at || null,
       });
     } catch {
-      set({ globalSettings: DEFAULT_GLOBAL_SETTINGS, sections: DEFAULT_SECTIONS });
+      set({ globalSettings: DEFAULT_GLOBAL_SETTINGS, sections: DEFAULT_SECTIONS, lastSyncedAt: null });
     }
   },
 

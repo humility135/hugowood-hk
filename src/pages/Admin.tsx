@@ -204,7 +204,7 @@ const Admin = () => {
 };
 
 const SiteBuilder = ({ showToast }: { showToast: (msg: string, type: ToastType) => void }) => {
-    const { sections, updateSection, globalSettings, updateGlobalSettings, resetToDefault } = useSiteStore();
+    const { sections, updateSection, globalSettings, updateGlobalSettings, resetToDefault, lastSyncedAt } = useSiteStore();
     const [uploading, setUploading] = useState(false);
 
     // Image Cropping State
@@ -239,6 +239,9 @@ const SiteBuilder = ({ showToast }: { showToast: (msg: string, type: ToastType) 
                 <div>
                     <h2 className="text-xl font-bold text-gray-900">網頁設計 (Site Builder)</h2>
                     <p className="text-sm text-gray-500 mt-1">直接在下方修改內容，所有變更會即時儲存至前台。</p>
+                    <p className="text-xs text-gray-400 mt-1">
+                        最後同步：{lastSyncedAt ? new Date(lastSyncedAt).toLocaleString('zh-HK', { hour12: false }) : '未同步'}
+                    </p>
                 </div>
                 <button 
                     onClick={() => {
