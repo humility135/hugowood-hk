@@ -18,6 +18,7 @@ const Navbar = () => {
   const [isMobileClothingOpen, setIsMobileClothingOpen] = useState(false);
   const cartCount = useCartStore((state) => state.totalItems());
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const hoverCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [categoryList, setCategoryList] = useState<string[]>([]);
   
@@ -85,6 +86,16 @@ const Navbar = () => {
       document.removeEventListener('touchstart', onPointerDown);
     };
   }, [isDropdownOpen]);
+
+  const openDropdown = () => {
+    if (hoverCloseTimerRef.current) clearTimeout(hoverCloseTimerRef.current);
+    setIsDropdownOpen(true);
+  };
+
+  const closeDropdownSoon = () => {
+    if (hoverCloseTimerRef.current) clearTimeout(hoverCloseTimerRef.current);
+    hoverCloseTimerRef.current = setTimeout(() => setIsDropdownOpen(false), 150);
+  };
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -166,10 +177,13 @@ const Navbar = () => {
                     <div 
                         className="relative flex items-center"
                         ref={dropdownRef}
+                        onMouseEnter={openDropdown}
+                        onMouseLeave={closeDropdownSoon}
                     >
                         <button
                             className="text-gray-900 hover:text-orange-500 px-3 py-2 rounded-md text-sm font-medium transition-colors inline-flex items-center outline-none whitespace-nowrap"
                             onClick={() => {
+                                if (hoverCloseTimerRef.current) clearTimeout(hoverCloseTimerRef.current);
                                 setIsDropdownOpen((v) => !v);
                             }}
                         >
