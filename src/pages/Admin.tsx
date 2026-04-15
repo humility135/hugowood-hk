@@ -6,11 +6,12 @@ import { Trash2, Plus, Upload, Link as LinkIcon, Edit, X, GripVertical, RefreshC
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, rectSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, Routes, Route, Navigate } from 'react-router-dom';
 import ReactCrop, { type Crop } from 'react-image-crop';
 import 'react-image-crop/dist/ReactCrop.css';
 import Toast, { ToastType } from '../components/Toast';
 import { useSiteStore, Section, Slide } from '../lib/store';
+import AdminLayout from '../components/admin/AdminLayout';
 
 const ADMIN_EMAIL = 'humility135@gmail.com';
 
@@ -116,7 +117,7 @@ const SortableImage = ({ img, idx, onRemove, onUpdateColor }: { img: ProductImag
 
 const Admin = () => {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'products' | 'orders' | 'on_sale' | 'site_builder'>('dashboard');
+  const location = useLocation();
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [toast, setToast] = useState<{ message: string; type: ToastType } | null>(null);
 
@@ -141,9 +142,23 @@ const Admin = () => {
   if (checkingAuth) {
       return <div className="text-center py-20">正在驗證權限...</div>;
   }
+
+  const title = (() => {
+    const path = location.pathname;
+    if (path.startsWith('/admin/products')) return 'Products';
+    if (path.startsWith('/admin/orders')) return 'Orders';
+    if (path.startsWith('/admin/site')) return '網頁設計';
+    if (path.startsWith('/admin/settings')) return 'Settings';
+    return 'Dashboard';
+  })();
+
+  const onLogout = async () => {
+    await supabase.auth.signOut();
+    navigate('/');
+  };
   
   return (
-    <div className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
+    <div>
       {toast && (
         <Toast
           message={toast.message}
@@ -151,54 +166,25 @@ const Admin = () => {
           onClose={() => setToast(null)}
         />
       )}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
-        <h1 className="text-3xl font-bold text-gray-900">後台管理中心</h1>
-        
-        {/* Tab Navigation */}
-        <div className="flex space-x-1 bg-gray-100 p-1.5 rounded-lg overflow-x-auto max-w-full no-scrollbar">
-            <button
-                onClick={() => setActiveTab('dashboard')}
-                className={`px-4 py-2 rounded-md text-sm font-medium flex items-center transition-all whitespace-nowrap flex-shrink-0 ${activeTab === 'dashboard' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-200/50'}`}
-            >
-                <LayoutDashboard className="w-4 h-4 mr-2" />
-                概覽
-            </button>
-            <button
-                onClick={() => setActiveTab('products')}
-                className={`px-4 py-2 rounded-md text-sm font-medium flex items-center transition-all whitespace-nowrap flex-shrink-0 ${activeTab === 'products' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-200/50'}`}
-            >
-                <Package className="w-4 h-4 mr-2" />
-                產品管理
-            </button>
-            <button
-                onClick={() => setActiveTab('on_sale')}
-                className={`px-4 py-2 rounded-md text-sm font-medium flex items-center transition-all whitespace-nowrap flex-shrink-0 ${activeTab === 'on_sale' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-200/50'}`}
-            >
-                <Tag className="w-4 h-4 mr-2" />
-                特價
-            </button>
-            <button
-                onClick={() => setActiveTab('orders')}
-                className={`px-4 py-2 rounded-md text-sm font-medium flex items-center transition-all whitespace-nowrap flex-shrink-0 ${activeTab === 'orders' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-200/50'}`}
-            >
-                <ShoppingBag className="w-4 h-4 mr-2" />
-                訂單管理
-            </button>
-            <button
-                onClick={() => setActiveTab('site_builder')}
-                className={`px-4 py-2 rounded-md text-sm font-medium flex items-center transition-all whitespace-nowrap flex-shrink-0 ${activeTab === 'site_builder' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-200/50'}`}
-            >
-                <Layout className="w-4 h-4 mr-2" />
-                網頁設計
-            </button>
-        </div>
-      </div>
+      <AdminLayout title={title} onLogout={onLogout}>
+        <Routes>
+          <Route index element={<Dashboard />} />
+          <Route path="products" element={<ProductManager showToast={showToast} />} />
+          <Route path="orders" element={<OrderManager showToast={showToast} />} />
+          <Route path="site" element={<SiteBuilder showToast={showToast} />} />
+          <Route path="settings" element={<SettingsPage />} />
+          <Route path="*" element={<Navigate to="/admin" replace />} />
+        </Routes>
+      </AdminLayout>
+    </div>
+  );
+};
 
-      {activeTab === 'dashboard' && <Dashboard />}
-      {activeTab === 'products' && <ProductManager showToast={showToast} />}
-      {activeTab === 'on_sale' && <OnSaleManager showToast={showToast} />}
-      {activeTab === 'orders' && <OrderManager showToast={showToast} />}
-      {activeTab === 'site_builder' && <SiteBuilder showToast={showToast} />}
+const SettingsPage = () => {
+  return (
+    <div className="bg-white rounded-lg border border-gray-200 p-6">
+      <div className="text-lg font-bold text-gray-900 mb-2">Settings</div>
+      <div className="text-sm text-gray-500">稍後加入付款、運費、權限等設定。</div>
     </div>
   );
 };
