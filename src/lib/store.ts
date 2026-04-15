@@ -42,7 +42,7 @@ export interface GlobalSettings {
 interface SiteConfigState {
   globalSettings: GlobalSettings;
   sections: Section[];
-  updateGlobalSettings: (settings: Partial<GlobalSettings> | Partial<GlobalSettings['announcement']> | Partial<GlobalSettings['siteIdentity']> | Partial<GlobalSettings['footer']>) => void;
+  updateGlobalSettings: (settings: Partial<GlobalSettings>) => void;
   updateSection: (id: string, newContent: Partial<Section>) => void;
   reorderSections: (newOrder: Section[]) => void;
   addSection: (section: Section) => void;
