@@ -18,7 +18,6 @@ const Navbar = () => {
   const [isMobileClothingOpen, setIsMobileClothingOpen] = useState(false);
   const cartCount = useCartStore((state) => state.totalItems());
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const [categoryList, setCategoryList] = useState<string[]>([]);
   
@@ -70,18 +69,22 @@ const Navbar = () => {
     return () => subscription.unsubscribe();
   }, []);
 
-  const handleMouseEnter = () => {
-    if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-    }
-    setIsDropdownOpen(true);
-  };
+  useEffect(() => {
+    const onPointerDown = (e: MouseEvent | TouchEvent) => {
+      if (!isDropdownOpen) return;
+      if (!dropdownRef.current) return;
+      const target = e.target as Node | null;
+      if (target && dropdownRef.current.contains(target)) return;
+      setIsDropdownOpen(false);
+    };
 
-  const handleMouseLeave = () => {
-    timeoutRef.current = setTimeout(() => {
-        setIsDropdownOpen(false);
-    }, 100);
-  };
+    document.addEventListener('mousedown', onPointerDown);
+    document.addEventListener('touchstart', onPointerDown);
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown);
+      document.removeEventListener('touchstart', onPointerDown);
+    };
+  }, [isDropdownOpen]);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -162,19 +165,12 @@ const Navbar = () => {
                     {/* Dropdown Menu */}
                     <div 
                         className="relative flex items-center"
-                        onMouseEnter={handleMouseEnter}
-                        onMouseLeave={handleMouseLeave}
                         ref={dropdownRef}
                     >
                         <button
                             className="text-gray-900 hover:text-orange-500 px-3 py-2 rounded-md text-sm font-medium transition-colors inline-flex items-center outline-none whitespace-nowrap"
                             onClick={() => {
-                                // Toggle dropdown on click instead of navigating
-                                if (isDropdownOpen) {
-                                    setIsDropdownOpen(false);
-                                } else {
-                                    setIsDropdownOpen(true);
-                                }
+                                setIsDropdownOpen((v) => !v);
                             }}
                         >
                             服飾
@@ -183,9 +179,7 @@ const Navbar = () => {
                         
                         {isDropdownOpen && (
                             <div 
-                                className="absolute top-full left-0 w-48 bg-white rounded-md shadow-lg ring-1 ring-black ring-opacity-5 py-1 z-50"
-                                onMouseEnter={handleMouseEnter}
-                                onMouseLeave={handleMouseLeave}
+                                className="absolute top-full left-0 w-48 bg-white rounded-md shadow-lg ring-1 ring-black ring-opacity-5 py-1 z-50 mt-2"
                             >
                                 <Link
                                     to="/products"
