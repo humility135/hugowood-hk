@@ -1255,6 +1255,14 @@ const ProductManager = ({ showToast }: { showToast: (msg: string, type: ToastTyp
       setTotalCount(count || 0);
       setSelectedProductIds(new Set());
     } catch (error) {
+      if (
+        typeof error === 'object' &&
+        error !== null &&
+        ('name' in error || 'message' in error) &&
+        (((error as any).name === 'AbortError') || String((error as any).message || '').includes('AbortError'))
+      ) {
+        return;
+      }
       console.error('Error fetching products:', error);
     } finally {
       setLoading(false);

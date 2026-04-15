@@ -137,24 +137,24 @@ const Navbar = () => {
                     </div>
 
                     {/* Desktop Navigation - Centered Horizontal */}
-                    <div className="hidden sm:flex sm:space-x-8">
+                    <div className="hidden sm:flex sm:items-center sm:space-x-2 lg:space-x-8 whitespace-nowrap overflow-x-auto no-scrollbar">
                     <Link
                         to="/"
-                        className="text-gray-900 hover:text-orange-500 px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-center"
+                        className="text-gray-900 hover:text-orange-500 px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-center whitespace-nowrap"
                     >
                         首頁
                     </Link>
 
                     <Link
                         to="/products?sort=newest"
-                        className="text-red-600 hover:text-red-700 px-3 py-2 rounded-md text-sm font-bold transition-colors flex items-center"
+                        className="text-red-600 hover:text-red-700 px-3 py-2 rounded-md text-sm font-bold transition-colors flex items-center whitespace-nowrap"
                     >
                         NEW ARRIVAL
                     </Link>
 
                     <Link
                         to="/products?filter=sale"
-                        className="text-red-600 hover:text-red-700 px-3 py-2 rounded-md text-sm font-bold transition-colors flex items-center"
+                        className="text-red-600 hover:text-red-700 px-3 py-2 rounded-md text-sm font-bold transition-colors flex items-center whitespace-nowrap"
                     >
                         SALE
                     </Link>
@@ -167,7 +167,7 @@ const Navbar = () => {
                         ref={dropdownRef}
                     >
                         <button
-                            className="text-gray-900 hover:text-orange-500 px-3 py-2 rounded-md text-sm font-medium transition-colors inline-flex items-center outline-none"
+                            className="text-gray-900 hover:text-orange-500 px-3 py-2 rounded-md text-sm font-medium transition-colors inline-flex items-center outline-none whitespace-nowrap"
                             onClick={() => {
                                 // Toggle dropdown on click instead of navigating
                                 if (isDropdownOpen) {
@@ -210,7 +210,7 @@ const Navbar = () => {
 
                     <Link
                         to="/about"
-                        className="text-gray-900 hover:text-orange-500 px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-center"
+                        className="text-gray-900 hover:text-orange-500 px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-center whitespace-nowrap"
                     >
                         關於我們
                     </Link>
@@ -218,7 +218,7 @@ const Navbar = () => {
                     {isAdmin && (
                         <Link
                         to="/admin"
-                        className="text-gray-900 hover:text-orange-500 px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-center"
+                        className="text-gray-900 hover:text-orange-500 px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-center whitespace-nowrap"
                         >
                         後台管理
                         </Link>

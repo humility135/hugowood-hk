@@ -120,7 +120,6 @@ const Home = () => {
           alt={`Hero Background ${currentSlide + 1}`}
           className="absolute inset-0 w-full h-full object-cover opacity-80 scale-105"
           loading="eager"
-          fetchPriority="high"
           decoding="async"
         />
 
