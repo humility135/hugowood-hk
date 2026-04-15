@@ -50,32 +50,41 @@ const Home = () => {
   };
 
   useEffect(() => {
+    if (slides.length === 0) return;
+    const nextIndex = (currentSlide + 1) % slides.length;
+    const nextImage = slides[nextIndex]?.image;
+    if (!nextImage) return;
+    const img = new Image();
+    img.src = nextImage;
+  }, [currentSlide, slides]);
+
+  useEffect(() => {
     const controller = new AbortController();
 
     const fetchProducts = async () => {
       try {
-        // Fetch Trending
-        const { data: trendingData, error: trendingError } = await supabase
-          .from('products')
-          .select('*')
-          .eq('is_deleted', false)
-          .limit(4)
-          .abortSignal(controller.signal);
+        const homepageSelect = 'id,name,description,price,sale_price,images,sizes,colors,stock_quantity,category,series,created_at,updated_at';
 
-        if (trendingError) throw trendingError;
-        setProducts(trendingData || []);
+        const [trendingRes, newRes] = await Promise.all([
+          supabase
+            .from('products')
+            .select(homepageSelect)
+            .eq('is_deleted', false)
+            .not('sale_price', 'is', null)
+            .order('updated_at', { ascending: false })
+            .limit(4)
+            .abortSignal(controller.signal),
+          supabase
+            .from('products')
+            .select(homepageSelect)
+            .eq('is_deleted', false)
+            .order('created_at', { ascending: false })
+            .limit(4)
+            .abortSignal(controller.signal),
+        ]);
 
-        // Fetch New Arrivals
-        const { data: newData, error: newError } = await supabase
-          .from('products')
-          .select('*')
-          .eq('is_deleted', false)
-          .order('created_at', { ascending: false })
-          .limit(4)
-          .abortSignal(controller.signal);
-
-        if (newError) throw newError;
-        setNewArrivals(newData || []);
+        if (!trendingRes.error) setProducts(trendingRes.data || []);
+        if (!newRes.error) setNewArrivals(newRes.data || []);
 
       } catch (error: any) {
         if (
@@ -106,14 +115,14 @@ const Home = () => {
       <section className="bg-black text-white rounded-2xl overflow-hidden relative h-[600px] flex items-center group">
         <div className="absolute inset-0 bg-gradient-to-r from-black via-transparent to-transparent z-10 opacity-90"></div>
         
-        {slides.map((s: any, index: number) => (
-            <img 
-                key={index}
-                src={s.image}
-                alt={`Hero Background ${index + 1}`} 
-                className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ease-in-out ${index === currentSlide ? 'opacity-80 scale-105' : 'opacity-0 scale-100'}`}
-            />
-        ))}
+        <img
+          src={slide.image}
+          alt={`Hero Background ${currentSlide + 1}`}
+          className="absolute inset-0 w-full h-full object-cover opacity-80 scale-105"
+          loading="eager"
+          fetchPriority="high"
+          decoding="async"
+        />
 
         {/* Navigation Arrows */}
         <button 
