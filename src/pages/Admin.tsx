@@ -1918,10 +1918,10 @@ const ProductManager = ({ showToast }: { showToast: (msg: string, type: ToastTyp
 
       {/* Product List */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden mb-8">
-        <div className="px-6 py-4 border-b border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-center justify-between w-full gap-4">
+        <div className="px-6 py-4 border-b border-gray-100 flex flex-col gap-4">
+          <div className="flex flex-wrap items-center justify-between w-full gap-3">
             <h2 className="text-xl font-bold">產品 ({totalCount})</h2>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2 justify-end">
               <button
                 onClick={() => fetchProducts()}
                 className="text-sm px-3 py-2 border border-gray-300 rounded-md hover:bg-gray-50"
@@ -1936,8 +1936,8 @@ const ProductManager = ({ showToast }: { showToast: (msg: string, type: ToastTyp
               </button>
             </div>
           </div>
-          <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
-             <div className="relative flex-1 sm:flex-none">
+          <div className="flex flex-wrap items-center gap-2 w-full">
+             <div className="relative w-full sm:w-72">
                 <input
                   type="text"
                   placeholder="搜尋產品名稱/分類/系列"
@@ -1956,7 +1956,7 @@ const ProductManager = ({ showToast }: { showToast: (msg: string, type: ToastTyp
                   setSaleOnly((v) => !v);
                   setPage(1);
                 }}
-                className={`flex items-center px-4 py-2 rounded-md text-sm font-medium border transition-colors ${
+                className={`flex items-center whitespace-nowrap px-4 py-2 rounded-md text-sm font-medium border transition-colors ${
                   saleOnly ? 'bg-red-50 text-red-700 border-red-200' : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'
                 }`}
              >
@@ -1970,7 +1970,7 @@ const ProductManager = ({ showToast }: { showToast: (msg: string, type: ToastTyp
                   setSelectedSeriesFilter(e.target.value);
                   setPage(1);
                 }}
-                className="border border-gray-300 rounded-md text-sm px-4 py-2 focus:outline-none focus:ring-2 focus:ring-black"
+                className="border border-gray-300 rounded-md text-sm px-4 py-2 focus:outline-none focus:ring-2 focus:ring-black w-full sm:w-auto"
              >
                 <option value="all">所有系列</option>
                 {existingSeries.map(series => (
@@ -1989,7 +1989,7 @@ const ProductManager = ({ showToast }: { showToast: (msg: string, type: ToastTyp
                   setSelectedCategoryFilter(e.target.value);
                   setPage(1);
                 }}
-                className="border border-gray-300 rounded-md text-sm px-4 py-2 focus:outline-none focus:ring-2 focus:ring-black"
+                className="border border-gray-300 rounded-md text-sm px-4 py-2 focus:outline-none focus:ring-2 focus:ring-black w-full sm:w-auto"
              >
                 <option value="all">所有分類</option>
                 {categoryList.map(cat => (
@@ -2003,7 +2003,7 @@ const ProductManager = ({ showToast }: { showToast: (msg: string, type: ToastTyp
                  setSortKey(e.target.value as any);
                  setPage(1);
                }}
-               className="border border-gray-300 rounded-md text-sm px-4 py-2 focus:outline-none focus:ring-2 focus:ring-black"
+               className="border border-gray-300 rounded-md text-sm px-4 py-2 focus:outline-none focus:ring-2 focus:ring-black w-full sm:w-auto"
              >
                <option value="updated_at_desc">最新更新</option>
                <option value="created_at_desc">最新新增</option>
