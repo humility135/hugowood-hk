@@ -151,7 +151,7 @@ const Navbar = () => {
                     </div>
 
                     {/* Desktop Navigation - Centered Horizontal */}
-                    <div className="hidden sm:flex sm:items-center sm:space-x-2 lg:space-x-8 whitespace-nowrap overflow-x-auto no-scrollbar">
+                    <div className="hidden sm:flex sm:flex-wrap sm:items-center gap-x-2 gap-y-1 lg:gap-x-8">
                     <Link
                         to="/"
                         className="text-gray-900 hover:text-orange-500 px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-center whitespace-nowrap"
