@@ -5,7 +5,7 @@ import { useCartStore } from '../store/cartStore';
 import { CheckCircle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { Elements, CardElement, useStripe, useElements } from '@stripe/react-stripe-js';
-import stripePromise from '../lib/stripe';
+import stripePromise, { stripeEnabled } from '../lib/stripe';
 
 // Checkout Form Component wrapped in Elements
 const CheckoutForm = () => {
@@ -34,8 +34,10 @@ const CheckoutForm = () => {
             const { data: { session } } = await supabase.auth.getSession();
             const userId = session?.user?.id || null;
 
-            // Validate Stripe if card is selected
             if (paymentMethod === 'card') {
+                if (!stripeEnabled) {
+                    throw new Error('Stripe is not configured');
+                }
                 if (!stripe || !elements) {
                     throw new Error('Stripe is not loaded');
                 }
@@ -231,20 +233,22 @@ const CheckoutForm = () => {
                                     />
                                     <span className="font-medium">貨到付款 / 銀行轉帳</span>
                                 </label>
-                                <label className="flex items-center p-3 border rounded-md cursor-pointer hover:bg-gray-50">
-                                    <input 
-                                        type="radio" 
-                                        name="payment" 
-                                        value="card" 
-                                        checked={paymentMethod === 'card'} 
-                                        onChange={() => setPaymentMethod('card')}
-                                        className="mr-3"
-                                    />
-                                    <span className="font-medium">信用卡 (Stripe)</span>
-                                </label>
+                                {stripeEnabled && (
+                                    <label className="flex items-center p-3 border rounded-md cursor-pointer hover:bg-gray-50">
+                                        <input 
+                                            type="radio" 
+                                            name="payment" 
+                                            value="card" 
+                                            checked={paymentMethod === 'card'} 
+                                            onChange={() => setPaymentMethod('card')}
+                                            className="mr-3"
+                                        />
+                                        <span className="font-medium">信用卡 (Stripe)</span>
+                                    </label>
+                                )}
                             </div>
 
-                            {paymentMethod === 'card' && (
+                            {stripeEnabled && paymentMethod === 'card' && (
                                 <div className="mt-4 p-4 border border-gray-200 rounded-md bg-gray-50">
                                     <label className="block text-sm font-medium text-gray-700 mb-2">信用卡資料</label>
                                     <div className="p-3 bg-white border border-gray-300 rounded-md">
@@ -281,7 +285,7 @@ const CheckoutForm = () => {
                                 disabled={processing}
                                 className={`w-full bg-orange-600 text-white py-3 rounded-md font-medium hover:bg-orange-700 transition-colors ${processing ? 'opacity-70 cursor-not-allowed' : ''}`}
                             >
-                                {processing ? '處理中...' : (paymentMethod === 'card' ? '立即付款' : '確認訂單')}
+                                {processing ? '處理中...' : (stripeEnabled && paymentMethod === 'card' ? '立即付款' : '確認訂單')}
                             </button>
                         </div>
                     </form>

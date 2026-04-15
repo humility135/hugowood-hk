@@ -1,6 +1,9 @@
 import { loadStripe } from '@stripe/stripe-js';
 
-// Make sure to add VITE_STRIPE_PUBLISHABLE_KEY to your .env file
-const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || '');
+const stripeKey = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
+
+export const stripeEnabled = Boolean(stripeKey);
+
+const stripePromise = stripeKey ? loadStripe(stripeKey) : Promise.resolve(null);
 
 export default stripePromise;
